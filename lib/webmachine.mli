@@ -219,6 +219,8 @@ module type S = sig
     (** [`POST] requests will call this method. Returning true indicates the
          POST succeeded. *)
 
+    method process_property : (bool, 'body) op
+
     method language_available : (bool, 'body) op
     (** Returning [false] will result in a [406 Not Acceptable].
 
