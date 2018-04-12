@@ -127,6 +127,15 @@ module type S = sig
     | `Redirect of Uri.t
     ]
 
+  type property_response =
+    [ `Ok
+    | `Infinite_not_allowed
+    | `Property_forbidden
+    | `Property_unauthorized
+    | `Property_not_found
+    | `Multistatus
+    ]
+
   val continue : 'a -> ('a, 'body) op
   (** [continue a rd] is equivalent to [IO.return (Ok x, rd)] *)
 
@@ -219,7 +228,7 @@ module type S = sig
     (** [`POST] requests will call this method. Returning true indicates the
          POST succeeded. *)
 
-    method process_property : (bool, 'body) op
+    method process_property : (property_response, 'body) op
 
     method language_available : (bool, 'body) op
     (** Returning [false] will result in a [406 Not Acceptable].

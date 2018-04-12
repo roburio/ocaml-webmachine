@@ -63,6 +63,15 @@ module type S = sig
     | `Redirect of Uri.t
     ]
 
+  type property_response =
+    [ `Ok
+    | `Infinite_not_allowed
+    | `Property_forbidden
+    | `Property_unauthorized
+    | `Property_not_found
+    | `Multistatus
+    ]
+
   val continue : 'a -> ('a, 'body) op
   val respond : ?body:'body -> int -> ('a, 'body) op
 
@@ -87,7 +96,7 @@ module type S = sig
     method delete_resource : (bool, 'body) op
     method delete_completed : (bool, 'body) op
     method process_post : (bool, 'body) op
-    method process_property : (bool, 'body) op
+    method process_property : (property_response, 'body) op
     method language_available : (bool, 'body) op
     method charsets_provided : ((string * ('body -> 'body)) list, 'body) op
     method encodings_provided : ((string * ('body -> 'body)) list, 'body) op
@@ -152,6 +161,15 @@ module Make(IO:IO)(Clock:CLOCK) = struct
     | `Redirect of Uri.t
     ]
 
+  type property_response =
+    [ `Ok
+    | `Infinite_not_allowed
+    | `Property_forbidden
+    | `Property_unauthorized
+    | `Property_not_found
+    | `Multistatus
+    ]
+
   let (>>=?) m f =
     m >>= function
     | Ok x, rd       -> f x rd
@@ -204,8 +222,8 @@ module Make(IO:IO)(Clock:CLOCK) = struct
       continue true rd
     method process_post (rd :'body Rd.t) : (bool result * 'body Rd.t) IO.t =
       continue false rd
-    method process_property (rd :'body Rd.t) : (bool result * 'body Rd.t) IO.t =
-      continue false rd
+    method process_property (rd :'body Rd.t) : (property_response result * 'body Rd.t) IO.t =
+      continue `Ok rd
     method language_available (rd :'body Rd.t) : (bool result * 'body Rd.t) IO.t =
       continue true rd
     method charsets_provided (rd :'body Rd.t) : ((string * ('body -> 'body)) list result * 'body Rd.t) IO.t =
@@ -589,8 +607,15 @@ module Make(IO:IO)(Clock:CLOCK) = struct
       self#d "v3g7b";
       match self#meth with
       | `Other "PROPFIND" | `Other "PROPPATCH" ->
-        self#run_op resource#process_property >>~ fun _res ->
-        self#v3o18b
+        begin
+          self#run_op resource#process_property >>~ function
+          | `Ok -> self#respond ~status:`OK ()
+          | `Infinite_not_allowed -> self#respond ~status:(`Code 403) ()
+          | `Property_forbidden -> self#respond ~status:(`Code 403) ()
+          | `Property_unauthorized -> self#respond ~status:(`Code 401) ()
+          | `Property_not_found -> self#respond ~status:(`Code 404) ()
+          | `Multistatus -> self#respond ~status:(`Code 207) ()
+        end
       | _ -> self#v3g8
 
     method v3g8 : (Code.status_code * Header.t * 'body) IO.t =
