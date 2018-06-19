@@ -135,6 +135,15 @@ module type S = sig
     | `Property_not_found
     | `Multistatus
     ]
+  
+  type collection_created_response =
+    [ `Created
+    | `Forbidden
+    | `Method_not_allowed
+    | `Conflict
+    | `Unsupported_media_type
+    | `Insufficient_storage
+    ]
 
   val continue : 'a -> ('a, 'body) op
   (** [continue a rd] is equivalent to [IO.return (Ok x, rd)] *)
@@ -229,6 +238,7 @@ module type S = sig
          POST succeeded. *)
 
     method process_property : (property_response, 'body) op
+    method create_collection : (collection_created_response, 'body) op
 
     method language_available : (bool, 'body) op
     (** Returning [false] will result in a [406 Not Acceptable].

@@ -72,6 +72,15 @@ module type S = sig
     | `Multistatus
     ]
 
+  type collection_created_response =
+    [ `Created
+    | `Forbidden
+    | `Method_not_allowed
+    | `Conflict
+    | `Unsupported_media_type
+    | `Insufficient_storage
+    ]
+
   val continue : 'a -> ('a, 'body) op
   val respond : ?body:'body -> int -> ('a, 'body) op
 
@@ -97,6 +106,7 @@ module type S = sig
     method delete_completed : (bool, 'body) op
     method process_post : (bool, 'body) op
     method process_property : (property_response, 'body) op
+    method create_collection : (collection_created_response, 'body) op
     method language_available : (bool, 'body) op
     method charsets_provided : ((string * ('body -> 'body)) list, 'body) op
     method encodings_provided : ((string * ('body -> 'body)) list, 'body) op
@@ -170,6 +180,15 @@ module Make(IO:IO)(Clock:CLOCK) = struct
     | `Multistatus
     ]
 
+  type collection_created_response =
+    [ `Created
+    | `Forbidden
+    | `Method_not_allowed
+    | `Conflict
+    | `Unsupported_media_type
+    | `Insufficient_storage
+    ]
+
   let (>>=?) m f =
     m >>= function
     | Ok x, rd       -> f x rd
@@ -224,6 +243,8 @@ module Make(IO:IO)(Clock:CLOCK) = struct
       continue false rd
     method process_property (rd :'body Rd.t) : (property_response result * 'body Rd.t) IO.t =
       continue `Ok rd
+    method create_collection (rd :'body Rd.t) : (collection_created_response result * 'body Rd.t) IO.t =
+      continue `Method_not_allowed rd
     method language_available (rd :'body Rd.t) : (bool result * 'body Rd.t) IO.t =
       continue true rd
     method charsets_provided (rd :'body Rd.t) : ((string * ('body -> 'body)) list result * 'body Rd.t) IO.t =
@@ -601,7 +622,7 @@ module Make(IO:IO)(Clock:CLOCK) = struct
       self#run_op resource#resource_exists
       >>~ function
         | true  -> self#v3g7b
-        | false -> self#v3h7
+        | false -> self#v3h7b
 
     method v3g7b : (Code.status_code * Header.t * 'body) IO.t =
       self#d "v3g7b";
@@ -650,6 +671,21 @@ module Make(IO:IO)(Clock:CLOCK) = struct
       match self#get_request_header "if-match" with
       | None   -> self#v3i7
       | Some _ -> self#halt 412
+
+    method v3h7b : (Code.status_code * Header.t * 'body) IO.t =
+      self#d "v3h7b";
+      match self#meth with
+      | `Other "MKCOL" | `Other "MKCALENDAR" ->
+        begin
+          self#run_op resource#create_collection >>~ function
+          | `Created -> self#respond ~status:`Created ()
+          | `Forbidden -> self#respond ~status:(`Code 403) ()
+          | `Method_not_allowed -> self#respond ~status:(`Code 405) ()
+          | `Conflict -> self#respond ~status:(`Code 409) ()
+          | `Unsupported_media_type -> self#respond ~status:(`Code 415) ()
+          | `Insufficient_storage -> self#respond ~status:(`Code 507) ()
+        end
+      | _ -> self#v3h7
 
     method v3h10 : (Code.status_code * Header.t * 'body) IO.t =
       self#d "v3h10";
