@@ -238,6 +238,7 @@ module type S = sig
          POST succeeded. *)
 
     method process_property : (property_response, 'body) op
+    method cannot_create : (unit, 'body) op
     method create_collection : (collection_created_response, 'body) op
 
     method language_available : (bool, 'body) op

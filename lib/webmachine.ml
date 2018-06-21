@@ -106,6 +106,7 @@ module type S = sig
     method delete_completed : (bool, 'body) op
     method process_post : (bool, 'body) op
     method process_property : (property_response, 'body) op
+    method cannot_create : (unit, 'body) op 
     method create_collection : (collection_created_response, 'body) op
     method language_available : (bool, 'body) op
     method charsets_provided : ((string * ('body -> 'body)) list, 'body) op
@@ -243,6 +244,8 @@ module Make(IO:IO)(Clock:CLOCK) = struct
       continue false rd
     method process_property (rd :'body Rd.t) : (property_response result * 'body Rd.t) IO.t =
       continue `Ok rd
+    method cannot_create (rd :'body Rd.t) : (unit result * 'body Rd.t) IO.t =
+      continue () rd
     method create_collection (rd :'body Rd.t) : (collection_created_response result * 'body Rd.t) IO.t =
       continue `Method_not_allowed rd
     method language_available (rd :'body Rd.t) : (bool result * 'body Rd.t) IO.t =
@@ -637,6 +640,9 @@ module Make(IO:IO)(Clock:CLOCK) = struct
           | `Property_not_found -> self#respond ~status:(`Code 404) ()
           | `Multistatus -> self#respond ~status:(`Code 207) ()
         end
+      | `Other "MKCOL" | `Other "MKCALENDAR" -> 
+        self#run_op resource#cannot_create >>~ fun () -> 
+        self#respond ~status:(`Code 403) ()
       | _ -> self#v3g8
 
     method v3g8 : (Code.status_code * Header.t * 'body) IO.t =
