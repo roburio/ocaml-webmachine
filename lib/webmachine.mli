@@ -135,7 +135,12 @@ module type S = sig
     | `Property_not_found
     | `Multistatus
     ]
-  
+ 
+  type report_response =
+    [ `Multistatus
+    | `Property_not_found
+    ]
+ 
   type collection_created_response =
     [ `Created
     | `Forbidden
@@ -240,6 +245,7 @@ module type S = sig
     method process_property : (property_response, 'body) op
     method cannot_create : (unit, 'body) op
     method create_collection : (collection_created_response, 'body) op
+    method report : (report_response, 'body) op
 
     method language_available : (bool, 'body) op
     (** Returning [false] will result in a [406 Not Acceptable].
